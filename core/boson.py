@@ -14,18 +14,20 @@ class NBoson(object):
         1. Hamiltonian generation with interaction
         2. Thats all lol
     '''
-    def __init__(self):
+    def __init__(self,N):
         super(SupercellModel,self).__init__(structure)
-        self.N=array(MODEL_N)
-        self.nbose=len(N)
+        self.N=N
+        self.nbose=len(self.N)
+        for i in xrange(nbose):
+            self.bosons.append(Boson(self.N[i]))
         self.ndim=self.N.prod()
 
-    def pushmats(self,mats):
+    def pushmats(self,mats,factor=1.):
         '''push a n body operator to the hamiltonian'''
         res=1.
         for i in xrange(nbose):
             res=kron(res,mats[i])
-        self.H+=res
+        self.H+=res*factor
 
     def pushc(self,nlist,factor):
         '''the c matrix for N boson.'''

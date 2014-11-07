@@ -46,6 +46,23 @@ class TriJJ(SQUID):
         self.kQ=(self.components['J1'].Ic-self.components['J2'].Ic)/(self.components['J1'].Ic+self.components['J2'].Ic)
         self.sQ=2*SQUID_CS/(SQUID_C1+SQUID_C2)
 
+        self.model=NBoson([3,3,5])
+
+    def initH(self):
+        '''initialize hamiltonian'''
+        #set JJ terms
+        for i in xrange(3):
+            jj=self.components['J'+str(i+1)]
+            glist=self.Utsa_inv4[i+1]
+            matlist1=[]
+            matlist2=[]
+            for k in [-1,1]:
+                matlist.append(self.model.bosons[0].mat_expaa(lamb=1j*glist[1]/sqrt(mt*wt)))
+                for j in [1,2]:
+                    boson=self.model.bosons[j]
+                    matlist.append(boson.mat_c(k*glist[1+j],withfactor=False))
+                self.model.pushmats(matlist,factor=-jj.Ic/2.*exp(1j*glist[0]?*self.Phi()))
+
     def initUmesh(self):
         self.Utsa=array([array([1.,0,0,0]),self.aQ/(1+2*self.aQ)*array([1.,-1,-1,-1]),array([-2*self.aQ,-1,-1,2*self.aQ])/2/(1+2*self.aQ),array([0.,1,-1,0])/2]) #make phi_0=Phi
         self.Utsa_inv=inv(self.Utsa[-3:,-3:]) #with Phi0 Truncated.
