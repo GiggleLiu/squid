@@ -30,7 +30,7 @@ class TriJJ(SQUID):
     '''3JJ looped SQUID'''
     def __init__(self):
         super(TriJJ,self).__init__()
-        #set first JJ
+        #register components(JJs and Inductance)
         j1=JJ(SQUID_IC1)
         j1.C(SQUID_C1+SQUID_CS)
         self.register('J1',j1)
@@ -41,29 +41,35 @@ class TriJJ(SQUID):
         j3.C(SQUID_C3+SQUID_CS)
         self.register('J3',j3)
         self.register('L',Inductance(SQUID_L))
-        self.Phi(0.)
 
+        #initialize Phi0 and other basic parameters
+        self.Phi(0.)            #note that phiQ=self.Phi()*2
         self.bQ=2*self.components['L'].L/(1/self.components['J1'].Ic+1/self.components['J2'].Ic+1/self.components['J3'].Ic)
         self.aQ=2*self.components['J3'].Ic/(self.components['J1'].Ic+self.components['J2'].Ic)
         self.kQ=(self.components['J1'].Ic-self.components['J2'].Ic)/(self.components['J1'].Ic+self.components['J2'].Ic)
         self.sQ=2*SQUID_CS/(SQUID_C1+SQUID_C2)
         self.Ej=(self.components['J1'].Ic+self.components['J2'].Ic)/4
         self.Ec=1./(SQUID_C1+SQUID_C2)
+
+        #get U matrix self.Usta which makes linear combination of phases(phiQ, phi1, phi2, and phi3), and effective-mass matrix self.Meff
         self.initUmat()
         self.initMeff()
 
+        #attach a Boson Model to this SQUID
         self.model=NBoson()
         m=1./self.Meff_inv[0,0]
-        oscil=Boson(3,m=m,w=sqrt(self.Ej*(1+2*self.aQ)**2*(1-self.kQ**2)/(2*self.aQ*self.bQ*(1+2*self.aQ-self.kQ**2))*2/m))
-        Ns,Na=10,5
-        js=Boson(2*Ns+1,offset=-Ns)
-        ja=Boson(2*Na+1,offset=-Na)
+        oscil=Boson(MODEL_NT+1,m=m,w=sqrt(self.Ej*(1+2*self.aQ)**2*(1-self.kQ**2)/(2*self.aQ*self.bQ*(1+2*self.aQ-self.kQ**2))*2/m))
+        js=Boson(2*MODEL_NS+1,offset=-MODEL_NS)
+        ja=Boson(2*MODEL_NA+1,offset=-MODEL_NA)
         self.model.pushboson(oscil)
         self.model.pushboson(js)
         self.model.pushboson(ja)
+
+        #decide where to store data
         self.setfolder(MODEL_FOLDER)
 
     def setfolder(self,folder):
+        '''set folder to store data'''
         try:
             os.mkdir(folder)
         except:
@@ -80,7 +86,16 @@ class TriJJ(SQUID):
         Ej: %s
         Ec: %s
         '''%(self.aQ,self.bQ,self.sQ,self.kQ,self.Ej,self.Ec)
-        print words
+        words2='''
+        Ic1: %s
+        Ic2: %s
+        Ic3: %s
+        C1: %s
+        C2: %s
+        C3: %s
+        Loop Inductance: %s
+        '''%(self.components['J1'].Ic,self.components['J2'].Ic,self.components['J3'].Ic,self.components['J1'].C(),self.components['J2'].C(),self.components['J3'].C(),self.components['L'].L)
+        print words,words2
 
     def initH(self):
         '''initialize hamiltonian'''
@@ -89,34 +104,21 @@ class TriJJ(SQUID):
         bosons=self.model.bosons
         oscil=bosons[0]
         for i in xrange(3):
-            if DEBUG:
-                print 'for jj - ',i
             jj=self.components['J'+str(i+1)]
             gl=self.Utsa_inv4[i+1]
             for k in [-1,1]:
                 glist=k*gl   #decouple a JJ to phi(2*self.Phi),t,s,a channel
-                if DEBUG:
-                    print 'with sign - ',k
-                    print glist
-                    print 'we get the first boson operator exp(%sx)'%(1j*glist[1])
                 matlist=[]
                 matlist.append(oscil.mat_expx(l=1j*glist[1]))
                 for j in [1,2]:
-                    if DEBUG:
-                        print 'we get component of ',j+1,'-th boson - ',glist[1+j]
                     boson=self.model.bosons[j]
                     matlist.append(boson.mat_c(int(round(glist[1+j])),withfactor=False))
                 self.model.pushmats(matlist,factor=-jj.Ic/4.*exp(1j*glist[0]*self.Phi()*2))
-                if DEBUG:
-                    print 'with factor - ',-jj.Ic/4.*exp(1j*glist[0]*self.Phi()*2)
-                    pdb.set_trace()
 
         #set oscillator term
         self.model.pushmats([oscil.mat_n(),bosons[1].I,bosons[2].I],factor=oscil.w)
-        #print self.model.H.max()
 
         #set kinetic terms
-        #for JJs
         for i in xrange(3):
             for j in xrange(3):
                 ml=[bosons[k].I for k in xrange(3)]
@@ -164,7 +166,7 @@ class TriJJ(SQUID):
         return self.eklmesh
 
     def plotband(self,withfigure=True):
-        '''plot the band structure.'''
+        '''plot the band, and show results.'''
         nphi=len(self.philist)
         if withfigure:
             figure()
@@ -185,6 +187,12 @@ class TriJJ(SQUID):
         if withfigure:
             show()
 
+    def initMeff(self):
+        '''get effective mass'''
+        self.Meff_origin=self.getMass()
+        self.Meff=self.phi2tsa(self.Meff_origin)
+        self.Meff_inv=inv(self.Meff)
+
     def initUmat(self):
         '''initialize the Umatrix that make linear combination of JJs'''
         self.Utsa=array([array([1.,0,0,0]),self.aQ/(1+2*self.aQ)*array([1.,-1,-1,-1]),array([-2*self.aQ,-1,-1,2*self.aQ])/2/(1+2*self.aQ),array([0.,1,-1,0])/2]) #make phi_0=Phi
@@ -192,23 +200,24 @@ class TriJJ(SQUID):
         self.Utsa_inv4=inv(self.Utsa) #with Phi0 Considered.
 
     def phi2tsa(self,inmesh):
-        '''transform the basic to another basis (0,t,s,a).
+        '''transform the original basic to basis (0,t,s,a).
         the original inmesh is define as (Phi,phi1,phi2,phi3) type list,
         or matrix on this basis.'''
         dim=len(inmesh)
         if ndim(inmesh)==1:
             return dot(self.Utsa[-dim:,-dim:],inmesh)
         else:
-            return dot(self.Utsa_inv.T,dot(inmesh,self.Utsa_inv))
+            Utsa_inv=self.Utsa_inv[-dim:,-dim:]
+            return dot(Utsa_inv.T,dot(inmesh,Utsa_inv))
 
     def tsa2phi(self,inmesh):
         '''transform basis (0,t,s,a) to (Phi,phi1,phi2,phi3).'''
         dim=len(inmesh)
         if ndim(inmesh)==1:
-            #phi_0=(self.Phi()-self.Utsa_inv[0,1:])/self.Utsa[0,0]
-            return dot(self.Utsa_inv,inmesh)
+            return dot(self.Utsa_inv[-dim:],inmesh)
         else:
-            return dot(self.Utsa[-dim:,-dim:].T,dot(inmesh,self.Utsa[-dim:,-dim:]))
+            Utsa=self.Utsa[-dim:,-dim:]
+            return dot(Utsa.T,dot(inmesh,Utsa))
 
     def I(self,i=None):
         '''get of set circuit current.'''
@@ -228,53 +237,29 @@ class TriJJ(SQUID):
             for c in self.components.values():
                 c.Phi(p)
 
-    def Kinetic(self,getmat=True):
+    def Kinetic(self):
         '''get the kinetic energy.'''
         kn=[]
         for c in self.components.values():
             if c.tp == 'JJ':
-                kn.append(c.Kinetic(getmat=getmat))
-        if getmat:
-            return diag(kn)
-        else:
-            return sum(kn)
+                kn.append(c.Kinetic())
+        return sum(kn)
+
+    def getMass(self):
+        '''get the masses of Josephson junctions.'''
+        kn=[]
+        for c in self.components.values():
+            if c.tp == 'JJ':
+                kn.append(c.Mass())
+        return diag(kn)
 
     def U(self):
         '''get the potential energy.'''
         for c in self.components.values():
             pass
 
-    def initMeff(self):
-        '''get effective mass'''
-        self.Meff_origin=self.Kinetic(getmat=True)*2
-        self.Meff=self.phi2tsa(self.Meff_origin)
-        self.Meff_inv=inv(self.Meff)
-
-    def getpotentialmesh(self):
-        '''get the potential mesh.'''
-        #first: U of JJs as a function of phi_a, phi_s and phi_t
-        #phi_t has 4 kinds in k space
-        #phi_s has 2
-        #phi_a has 5(4)]
-        N=1
-        Ns=5
-        Na=3
-        phimesh=zeros([N,Ns,Na],dtype='complex128')
-        indoffset=array([Ns/2,Na/2])
-        phi_t=linspace(0,2*pi,N)
-        for i in xrange(3):
-            Ic=self.components['J'+str(i+1)].Ic
-            cvals=self.Utsa_inv4[i+1]
-            ind1=array((cvals[-2:]).round(),dtype='int32')
-            _ind1=-ind1+indoffset
-            ind1+=indoffset
-
-            phimesh[:,ind1[0],ind1[1]]=Ic*exp(1j*(phi_t*cvals[1]+cvals[0]*self.Phi()))
-            phimesh[:,_ind1[0],_ind1[1]]=Ic*exp(-1j*(phi_t*cvals[1]+cvals[0]*self.Phi()))
-        phimesh/=2
-        pdb.set_trace()
-
 def job_plotband():
+    '''show results.'''
     tj=TriJJ()
     tj.show_params()
     if APPENDEK:
@@ -283,15 +268,14 @@ def job_plotband():
         tj.initHlist()
         tj.initeklist()
     tj.plotband()
-    pdb.set_trace()
 
 def job_testboson():
+    '''test boson operators.'''
     bs=Boson(5,offset=-2)
-    print bs.mat_n()
-    print bs.mat_x()
-    print bs.mat_p()
-    print bs.mat_expx(l=1.)
-    pdb.set_trace()
+    print 'n-matrix: ',bs.mat_n()
+    print 'x-matrix: ',bs.mat_x()
+    print 'p-matrix: ',bs.mat_p()
+    print 'exp(l*x)-matrix: ',bs.mat_expx(l=1.)
 
 if __name__=='__main__':
     #job_testboson()

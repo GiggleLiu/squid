@@ -49,12 +49,13 @@ class JJ(Component):
         if self.hasR:
             u+=self.R**self.I()/2
 
-    def Kinetic(self,getmat=False):
-        '''return the kinetic energy of this JJ.
-        getmat means get in matrix representaction on basis of V.'''
-        if mat:
-            return 1./8*self.C()
+    def Kinetic(self):
+        '''return the kinetic energy of this JJ.'''
         return self.V()**2/8*self.C
+
+    def Mass(self):
+        '''get the mass matrix.'''
+        return 1./4*self.C()
 
     def C(self,c=None):
         '''set and get the capacitance.'''
