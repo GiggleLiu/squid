@@ -45,7 +45,7 @@ class JJ(Component):
     def U(self):
         '''return the energy conserved in this JJ'''
         u=0.
-        u+=self.Ic*(1-cos(self.phase()))
+        u+=self.Ic*(1-cos(self.phase()))/2  #take Phi0/(2pi) as 1/2
         if self.hasR:
             u+=self.R**self.I()/2
 
@@ -53,8 +53,8 @@ class JJ(Component):
         '''return the kinetic energy of this JJ.
         getmat means get in matrix representaction on basis of V.'''
         if mat:
-            return 1./2*self.C()
-        return self.V()**2/2*self.C
+            return 1./8*self.C()
+        return self.V()**2/8*self.C
 
     def C(self,c=None):
         '''set and get the capacitance.'''
@@ -131,18 +131,6 @@ class Inductance(Component):
             return self.params['Phi'].val()
         else:
             self.params['Phi'].set(p)
-
-    class JJBoson(BosonModel):
-        '''the boson model for JJ.'''
-        def __init__(self,outer,ndim):
-            super(JJBoson,self).__init__(st)
-            self.outer=outer
-            self.ndim=ndim
-    
-        def H(self,n):
-            '''return the c matrix by JJ parameters.'''
-            return -self.outer.Ic/2*self.cmat(n=)
-
 
 class Capacitance(Component):
     '''Capacitance class'''

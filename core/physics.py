@@ -546,6 +546,13 @@ def ind2c(ind,N):
         index=index/N[-1-i]
     return indl
 
+def eV2Ghz(e):
+    '''parse the energy scale to Ghz.'''
+    return e*1e-19/1e-9/(2*pi*1.05e-34)
+
+def Ghz2eV(e):
+    '''parse the energy scale to eV.'''
+    return e/1e-19*1e-9*(2*pi*1.05e-34)
 
 if __name__=='__main__':
     #test spin operation
